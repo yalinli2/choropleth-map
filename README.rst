@@ -2,7 +2,9 @@
 Plotting Choropleth Map in Python
 =================================
 
-Choropleth map color-codes an area with certain data, e.g., `population density <https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Living_population_density.png/900px-Living_population_density.png>`_. The instructions below provides a step-to-step guide of generating a choropleth in Python (world population density). Note that there are many alternative methods you can explore (e.g., [1]_, [2]_, [3]_ ), but I like ``geopandas`` since it's relatively lightweight and used in similar ways as ``pandas`` and ``matplotlib``.
+Choropleth map color-codes an area with certain data, e.g., `population density <https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Living_population_density.png/900px-Living_population_density.png>`_. The instructions below provides a step-to-step guide of generating a choropleth in Python (world population density). You can run the ``choropleth.py`` script to generate the figure.
+
+Note that there are many alternative methods you can explore (e.g., [1]_, [2]_, [3]_ ), but I like ``geopandas`` since it's relatively lightweight and used in similar ways as ``pandas`` and ``matplotlib``.
 
 
 Steps to generate a choropleth map
@@ -23,6 +25,7 @@ Steps to generate a choropleth map
 
 	.. code::
 
+		# Read map
 		import geopandas as gpd
 		world = gpd.read_file('world_map.json')
 		world.plot() # see the world map
@@ -31,30 +34,38 @@ Steps to generate a choropleth map
 
 	.. code::
 
-		world.plot('economy', legend=False)
+		world.plot('economy')
 
 
 #. To update the json data with the data on the population density.
 
 	.. code::
 
+		# Read data
 		import pandas as pd
 		population = pd.read_csv('population_density.csv', skiprows=4)
-		idx1 = world[world.iso_a3.isin(population.loc[:, 'Country Code'])].index
-		idx2 = population[population.loc[:, 'Country Code'].isin(world.iso_a3)].index
-		world.loc[idx1, 'population_2020'] = population.loc[idx2, '2020']
+		
+		# Pass the value to the map
+		filtered = world[world.iso_a3.isin(population.loc[:, 'Country Code'])].sort_values(by='iso_a3').reset_index(drop=True)
+		population = population[population.loc[:, 'Country Code'].isin(world.iso_a3)].sort_values(by='Country Code').reset_index(drop=True)
+		filtered['population_2020'] = population['2020']
 
 #. And now we can get the plot.
 
 	.. code::
 		
-		# Just to make it nicer
-		from matplotlib import pyplot as plt
-		plt.style.use('seaborn')
+		# Make the plot
+		ax = world.plot(color='lightgrey', edgecolor='k') # plot the background
+		filtered.plot('population_2020', cmap='Blues', edgecolor='k', legend=True,
+		              scheme='quantiles', ax=ax) # you'll need the ``mapclassify`` package for using the scheme here
 
-		missing_kwds = dict(color='lightgrey', label='No Data')
-		ax = world.plot('population_2020', cmap='cool', edgecolor='k', legend=True,
-		                missing_kwds=missing_kwds)
+		legend = ax.get_legend()
+		labels = [i.get_text() for i in legend.get_texts()]
+		ax.legend(handles=legend.get_lines(), labels=labels,
+		          loc='lower left', title='population density',
+		          frameon=True, fancybox=True)
+		          
+		ax.set_axis_off() # if you don't want the axis		                
 		ax.figure.show()
 
 #. Here's what I got, it certainly can be polished up, but the rest is just wrestling with ``matplotlib``, have fun!
